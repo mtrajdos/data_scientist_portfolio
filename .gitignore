@@ -7,4 +7,6 @@ __pycache__/
 
 !data/raw/.gitkeep
 data/processed/*
+data/migrate_dataframes.R
+data/sync_nhanes.sh
 !data/processed/.gitkeep
