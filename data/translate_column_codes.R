@@ -16,3 +16,4 @@ xpt_files <- list.files("data/raw/nhanes/2017-2018", pattern = "\\.xpt$", full.n
 for (i in seq_along(xpt_files)) {
     xpt_files[i] <- str_split(xpt_files[i], pattern = "\\.")[[1]][1]
 }
+
