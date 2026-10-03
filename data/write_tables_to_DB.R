@@ -35,5 +35,5 @@ for (i in seq_along(translated_dfs)) {
     )
 }
 
-# Disconnect from the database
-dbDisconnect(con)
+# Disconnect from the database (or do it manually)
+# dbDisconnect(con)

@@ -74,13 +74,13 @@ source("data/translate_columns.R")
 # translated_dfs[[i]] — one data frame per XPT file
 ```
 
-Metadata for scripting (labels and value codes) lives in:
+Column/answer reference (table → column → codes) lives in:
 
 ```
 data/raw/nhanes/2017-2018/_file_list.txt
 ```
 
-Parse it as pipe-delimited `ABBR` / `FILE` / `VAR` / `CODE` records (see the header of that file).
+Layout: `TABLE - title`, then each `COLUMN  label`, then `- code  meaning` options under it.
 
 ## Data notes
 
