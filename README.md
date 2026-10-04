@@ -145,12 +145,22 @@ Human-readable column/answer guide:
 data/raw/nhanes/2017-2018/_file_list.txt
 ```
 
-Layout:
+Layout (`-----` separates forms, `---` separates questions, ` | ` separates fields):
 
 ```text
-TABLE - title
-COLUMN  short label
-- code  meaning
+-----
+
+INQ_J | Income
+
+INQ020 | Income from wages/salaries
+1 | Yes
+2 | No
+7 | Refused
+
+---
+
+INQ012 | Income from self employment
+...
 ```
 
 ## Data notes
