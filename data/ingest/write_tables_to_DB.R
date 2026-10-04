@@ -43,10 +43,9 @@ for (i in seq_along(xpt_files)) {
     dfs[[i]] <- df
 }
 
-# Iterate through dataframes within the translated_dfs list
+# Iterate through dataframes within the dfs list 
 for (i in seq_along(dfs)) {
     # Upload dataframe with auto-recognized column types
-    # and pre-defined Primary Key as SEQN
     # Table names match original .xpts
     dbWriteTable(
         conn = con,
