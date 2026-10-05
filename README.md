@@ -4,25 +4,25 @@ Portfolio project for end-to-end clinical survey workflows: download public NHAN
 
 ## Tech stack
 
-| Layer | Tools |
-| --- | --- |
-| Data source | CDC / NCHS [NHANES 2017–2018](https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/default.aspx?BeginYear=2017) (file suffix `_J`) |
-| Ingest | **R** (≥ 4.x): `haven` (local `.xpt`), `nhanesA` (`nhanesCodebook`), `stringr` |
-| Database driver (R) | `RPostgreSQL` + `DBI` |
-| Database | **PostgreSQL 18** (developed against 18.6) |
-| Exploration | SQL under `data/sql/`; `psql` or a Cursor DB client (e.g. DBCode) |
-| Planned consumers | Python (`src/`) for later analysis / ingest helpers |
-| OS notes | Windows-friendly; Bash download helper is optional/local |
+| Layer               | Tools                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Data source         | CDC / NCHS [NHANES 2017–2018](https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/default.aspx?BeginYear=2017) (file suffix `_J`) |
+| Ingest              | **R** (≥ 4.x): `haven` (local `.xpt`), `nhanesA` (`nhanesCodebook`), `stringr`                                                  |
+| Database driver (R) | `RPostgreSQL` + `DBI`                                                                                                           |
+| Database            | **PostgreSQL 18** (developed against 18.6)                                                                                      |
+| Exploration         | SQL under `data/sql/`; `psql` or a Cursor DB client (e.g. DBCode)                                                               |
+| Planned consumers   | Python (`src/`) for later analysis / ingest helpers                                                                             |
+| OS notes            | Windows-friendly; Bash download helper is optional/local                                                                        |
 
 ## Pipeline overview
 
-| Stage | What runs | Output |
-| --- | --- | --- |
-| Download | Local sync helper (gitignored) | `.xpt` files in `data/raw/nhanes/2017-2018/` |
-| Document | `data/raw/nhanes/2017-2018/_file_list.txt` | Human-readable form → question → code reference |
-| Load | `data/ingest/write_tables_to_DB.R` | One Postgres table per XPT **with raw numeric/text codes** |
-| Codebook | Same script (`nhanesCodebook` → flatten) | Postgres table `codebook` (`variable`, `code`, `meaning`) |
-| Query | `data/sql/*.sql` | Ad-hoc exploration / joins to labels |
+| Stage    | What runs                                  | Output                                                     |
+| -------- | ------------------------------------------ | ---------------------------------------------------------- |
+| Download | Local sync helper (gitignored)             | `.xpt` files in `data/raw/nhanes/2017-2018/`               |
+| Document | `data/raw/nhanes/2017-2018/_file_list.txt` | Human-readable form → question → code reference            |
+| Load     | `data/ingest/write_tables_to_DB.R`         | One Postgres table per XPT **with raw numeric/text codes** |
+| Codebook | Same script (`nhanesCodebook` → flatten)   | Postgres table `codebook` (`variable`, `code`, `meaning`)  |
+| Query    | `data/sql/*.sql`                           | Ad-hoc exploration / joins to labels                       |
 
 Tables join on `SEQN` (respondent ID). Survey tables keep **codes** (e.g. `0`, `1`, `3`). Human-readable labels live in the separate `codebook` table and are joined when needed.
 
@@ -109,11 +109,11 @@ What the script does:
 
 #### `codebook` table shape
 
-| Column | Content |
-| --- | --- |
-| `variable` | Column / question id (e.g. `DPQ010`) |
-| `code` | Stored value in the survey table (e.g. `0`, `1`, `7`) |
-| `meaning` | CDC value description (e.g. `Not at all`) |
+| Column     | Content                                               |
+| ---------- | ----------------------------------------------------- |
+| `variable` | Column / question id (e.g. `DPQ010`)                  |
+| `code`     | Stored value in the survey table (e.g. `0`, `1`, `7`) |
+| `meaning`  | CDC value description (e.g. `Not at all`)             |
 
 Entries without an answers table (e.g. skip-logic “BOX” items) are skipped. If `nhanesCodebook` fails for a file (package/HTML issue), that file’s codebook is skipped with a warning; other tables still load.
 
