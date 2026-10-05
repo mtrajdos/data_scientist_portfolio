@@ -141,7 +141,6 @@ fig.update_layout(
 # Save HTML (interactive) and PDF (static); PDF needs the kaleido package
 out_dir = ROOT / "data/static/figures"
 out_dir.mkdir(parents=True, exist_ok=True)
-fig.write_html(out_dir / "bmi_sugar_intake.html")
 try:
     fig.write_image(out_dir / "bmi_sugar_intake.pdf", format="pdf")
 except (ValueError, ImportError, RuntimeError) as exc:
