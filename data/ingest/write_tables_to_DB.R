@@ -50,11 +50,12 @@ for (i in seq_along(xpt_files)) {
         warning(paste0("No codebook found for ", file, ". Skipping..."))
         next
     }
-    # Get all columns except for the SEQN
-    vars <- setdiff(names(cb_df), "SEQN")
 
     # If the datafarme has a valid codebook
     if (length(cb_df) != 0) {
+        # Get all columns except for the SEQN
+        vars <- setdiff(names(cb_df), "SEQN")
+
         # Iterate through column names
         for (j in seq_along(vars)) {
             # Save the codebook to the lookup_dfs: +1 to shift the index and a
@@ -84,8 +85,9 @@ if (length(lookup_dfs) > 0) {
 
     # Walk every variable codebook collected earlier
     for (item in lookup_dfs) {
+        # lookup_dfs[[1]], lookup_dfs[[2]], etc.
         # Human-readable name of this column, e.g. "ACD011A"
-        var <- item[["Variable Name:"]]
+        var <- item[["Variable Name:"]] # e.g. lookup_dfs[[1]][["Variable Name:"]] - Variable Name fetches the variable symbol, e.g. "ACD011A"
 
         # The answers table is stored under that same name inside the nested list
         # if the variable name does not have any data, proceed with the next item
@@ -93,6 +95,8 @@ if (length(lookup_dfs) > 0) {
             next
         }
         # The answers table is stored under that same name inside the nested list
+        # e.g. item[["ACD011A"]] where item is a dataframe (in this example it's lookup_dfs[[1]])
+        # so the full line in that example is code_tbl <- lookup_dfs[[1]][["ACD011A"]] - [[]] because we are accessing a nested list
         code_tbl <- item[[var]]
         # if the answers table is not a data.frame, proceed with the next item
         if (!is.data.frame(code_tbl)) {
@@ -101,7 +105,9 @@ if (length(lookup_dfs) > 0) {
         # One small data.frame with one row per answer code for this variable
         rows[[length(rows) + 1]] <- data.frame(
             variable = var,
-            code = code_tbl[["Code or Value"]],
+            # we still want [[]] here because accessing a nested list,
+            #so need a vector and not a one-column dataframe
+            code = code_tbl[["Code or Value"]], 
             meaning = code_tbl[["Value Description"]],
             stringsAsFactors = FALSE
         )
