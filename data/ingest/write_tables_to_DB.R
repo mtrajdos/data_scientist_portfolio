@@ -106,8 +106,8 @@ if (length(lookup_dfs) > 0) {
         rows[[length(rows) + 1]] <- data.frame(
             variable = var,
             # we still want [[]] here because accessing a nested list,
-            #so need a vector and not a one-column dataframe
-            code = code_tbl[["Code or Value"]], 
+            # so need a vector and not a one-column dataframe
+            code = code_tbl[["Code or Value"]],
             meaning = code_tbl[["Value Description"]],
             stringsAsFactors = FALSE
         )
