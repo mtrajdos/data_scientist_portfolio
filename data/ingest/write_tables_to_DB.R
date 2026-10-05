@@ -43,7 +43,7 @@ for (i in seq_along(xpt_files)) {
     df <- read_xpt(file.path("data/raw/nhanes/2017-2018", paste0(file, ".xpt")))
     # Save the dataframe to the list
     data_dfs[[i]] <- df
-    # Create an .xpt-file-specific codebook dataframe. If the codebook is not found, return NULL
+    # Create an .xpt-file-specific codebook. If the codebook is not found, return NULL
     cb_df <- tryCatch(nhanesCodebook(file), error = function(e) NULL)
     # Proceed with the next table if the codebook is not found
     if (is.null(cb_df) || length(cb_df) == 0) {
@@ -51,15 +51,24 @@ for (i in seq_along(xpt_files)) {
         next
     }
 
-    # If the datafarme has a valid codebook
+    # If the dataframe has a valid codebook
     if (length(cb_df) != 0) {
-        # Get all columns except for the SEQN
+        # Get all columns except for SEQN (same ID everywhere; not useful in the lookup)
         vars <- setdiff(names(cb_df), "SEQN")
 
-        # Iterate through column names
+        # Iterate through those variable names
         for (j in seq_along(vars)) {
-            # Save the codebook to the lookup_dfs: +1 to shift the index and a
-            lookup_dfs[[length(lookup_dfs) + 1]] <- cb_df[[vars[j]]]
+            # Append one list entry per variable.
+            # length(lookup_dfs) + 1 grows the list across forms (do not reuse j,
+            # or each new questionnaire would overwrite slots 1, 2, 3, ...).
+            # Structure of each lookup_dfs[[k]]:
+            #   $form  - questionnaire id, e.g. "ACQ_J"
+            #   $entry - nested nhanesCodebook list for one variable
+            #            (Variable Name, SAS Label, ..., and optional answers tibble)
+            lookup_dfs[[length(lookup_dfs) + 1]] <- list(
+                form = file,
+                entry = cb_df[[vars[j]]]
+            )
         }
     }
 }
@@ -77,36 +86,51 @@ for (i in seq_along(data_dfs)) {
     )
 }
 
-# Build one tidy codebook data.frame, then upload it
-# dbWriteTable cannot store lookup_dfs list as-is — Postgres needs a flat table.
+# Build one tidy codebook data.frame, then upload it.
+# dbWriteTable cannot store lookup_dfs as-is — Postgres needs a flat table.
+# Target columns: form | variable | code | meaning
 if (length(lookup_dfs) > 0) {
-    # Empty list; each code row we extract will be stored here as a small data.frame
+    # Empty list; each extracted answers block becomes a small data.frame here
     rows <- list()
 
-    # Walk every variable codebook collected earlier
+    # Walk every collected form+entry pair (lookup_dfs[[1]], [[2]], ...)
     for (item in lookup_dfs) {
-        # lookup_dfs[[1]], lookup_dfs[[2]], etc.
-        # Human-readable name of this column, e.g. "ACD011A"
-        var <- item[["Variable Name:"]] # e.g. lookup_dfs[[1]][["Variable Name:"]] - Variable Name fetches the variable symbol, e.g. "ACD011A"
+        # item is list(form = "...", entry = <nested codebook list>)
+        # e.g. item$form == "ACQ_J"
+        form <- item$form
+        # entry is the original nhanesCodebook object for one variable
+        # e.g. names(entry) include "Variable Name:", "SAS Label:", "ACD011A", ...
+        entry <- item$entry
 
-        # The answers table is stored under that same name inside the nested list
-        # if the variable name does not have any data, proceed with the next item
-        if (length(var) != 1 || is.na(var) || !var %in% names(item)) {
+        # Read the question id written inside the nested list, e.g. "ACD011A"
+        # Equivalent manual example:
+        #   lookup_dfs[[2]]$entry[["Variable Name:"]]  -> "ACD011A"
+        var <- entry[["Variable Name:"]]
+
+        # Skip entries with no usable Variable Name, or where that name is not
+        # a field on entry (skip-logic BOX items often have no answers tibble)
+        if (length(var) != 1 || is.na(var) || !var %in% names(entry)) {
             next
         }
-        # The answers table is stored under that same name inside the nested list
-        # e.g. item[["ACD011A"]] where item is a dataframe (in this example it's lookup_dfs[[1]])
-        # so the full line in that example is code_tbl <- lookup_dfs[[1]][["ACD011A"]] - [[]] because we are accessing a nested list
-        code_tbl <- item[[var]]
-        # if the answers table is not a data.frame, proceed with the next item
+
+        # Pull the answers tibble by that name (not another loop — named lookup).
+        # Equivalent manual example if entry is for ACD011A:
+        #   code_tbl <- entry[["ACD011A"]]
+        #   # same as lookup_dfs[[i]]$entry[["ACD011A"]]
+        # [[ ]] returns the tibble itself; [ ] would wrap it in a length-1 list
+        code_tbl <- entry[[var]]
+
+        # If there is no answers table, skip (metadata-only / BOX entries)
         if (!is.data.frame(code_tbl)) {
             next
         }
-        # One small data.frame with one row per answer code for this variable
+
+        # One small data.frame with one row per answer code for this variable.
+        # code_tbl is already a flat tibble; [[ ]] extracts columns as vectors
+        # (needed for data.frame(...); [ ] would leave a one-column data.frame)
         rows[[length(rows) + 1]] <- data.frame(
+            form = form,
             variable = var,
-            # we still want [[]] here because accessing a nested list,
-            # so need a vector and not a one-column dataframe
             code = code_tbl[["Code or Value"]],
             meaning = code_tbl[["Value Description"]],
             stringsAsFactors = FALSE

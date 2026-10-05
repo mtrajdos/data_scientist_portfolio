@@ -21,7 +21,7 @@ Portfolio project for end-to-end clinical survey workflows: download public NHAN
 | Download | Local sync helper (gitignored)             | `.xpt` files in `data/raw/nhanes/2017-2018/`               |
 | Document | `data/raw/nhanes/2017-2018/_file_list.txt` | Human-readable form → question → code reference            |
 | Load     | `data/ingest/write_tables_to_DB.R`         | One Postgres table per XPT **with raw numeric/text codes** |
-| Codebook | Same script (`nhanesCodebook` → flatten)   | Postgres table `codebook` (`variable`, `code`, `meaning`)  |
+| Codebook | Same script (`nhanesCodebook` → flatten)   | Postgres table `codebook` (`form`, `variable`, `code`, `meaning`)  |
 | Query    | `data/sql/*.sql`                           | Ad-hoc exploration / joins to labels                       |
 
 Tables join on `SEQN` (respondent ID). Survey tables keep **codes** (e.g. `0`, `1`, `3`). Human-readable labels live in the separate `codebook` table and are joined when needed.
@@ -111,6 +111,7 @@ What the script does:
 
 | Column     | Content                                               |
 | ---------- | ----------------------------------------------------- |
+| `form`     | Questionnaire / table id (e.g. `DPQ_J`)               |
 | `variable` | Column / question id (e.g. `DPQ010`)                  |
 | `code`     | Stored value in the survey table (e.g. `0`, `1`, `7`) |
 | `meaning`  | CDC value description (e.g. `Not at all`)             |
@@ -120,7 +121,7 @@ Entries without an answers table (e.g. skip-logic “BOX” items) are skipped. 
 Example:
 
 ```sql
-SELECT * FROM codebook WHERE variable = 'DPQ010';
+SELECT * FROM codebook WHERE form = 'DPQ_J' AND variable = 'DPQ010';
 ```
 
 Join labels when displaying results (codes stay in the survey table):
@@ -129,7 +130,8 @@ Join labels when displaying results (codes stay in the survey table):
 SELECT d."SEQN", d."DPQ010", c.meaning
 FROM "DPQ_J" d
 LEFT JOIN codebook c
-  ON c.variable = 'DPQ010'
+  ON c.form = 'DPQ_J'
+ AND c.variable = 'DPQ010'
  AND c.code = d."DPQ010"::text
 LIMIT 10;
 ```
@@ -160,7 +162,7 @@ LIMIT 10;
 - Download + local XPT cache: in place (sync helper local/gitignored)
 - Human codebook text (`_file_list.txt`): in place
 - PostgreSQL load of raw-coded survey tables: implemented (`data/ingest/write_tables_to_DB.R`)
-- Postgres `codebook` lookup from `nhanesCodebook`: implemented (flattened `variable` / `code` / `meaning`)
+- Postgres `codebook` lookup from `nhanesCodebook`: implemented (flattened `form` / `variable` / `code` / `meaning`)
 - SQL exploration (`data/sql/`): started
 - Python analysis consumers (`src/`): stub only
 - Formal schema / primary keys: not finalized
