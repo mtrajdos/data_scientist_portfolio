@@ -13,7 +13,7 @@ class DataPlotter:
         self.project_root = self.df_loader.project_root
 
     # RQ: What are the effects of physiological markers (cardiometabolic, renal, etc.)
-    # on psychological complaints and symptoms?
+    # on depression severity defined by DPQ_J total score?
     def plot_forest_effect_sizes_of_phys_markers_on_phq_9(self):
         self.sql = (
             self.project_root
