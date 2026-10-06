@@ -4,6 +4,9 @@ __pycache__/
 .env
 .Renviron
 .lintr
+.ruff_cache/
+notebook.ipynb
+
 
 !data/raw/.gitkeep
 data/processed/*
