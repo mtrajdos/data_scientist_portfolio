@@ -2,4 +2,4 @@ from src.consume.data_plotter import DataPlotter
 
 if __name__ == "__main__":
     data_plotter = DataPlotter()
-    data_plotter.plot_bmi_vs_mean_sugar_intake_by_age_group()
+    data_plotter.plot_forest_effect_sizes_of_phys_markers_on_phq_9()

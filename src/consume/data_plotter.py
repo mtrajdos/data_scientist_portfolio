@@ -22,8 +22,96 @@ class DataPlotter:
         self.df = pd.read_sql(self.sql, self.df_loader.engine)
         df = self.df.copy()
 
-        
+        age_labels = ["18-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+"]
 
+        # Bin ages into labeled groups (include_lowest so age 18 is kept in 18-24)
+        df["age_group"] = pd.cut(
+            df["RIDAGEYR"],
+            bins=[18, 24, 34, 44, 54, 64, 74, 100],
+            labels=age_labels,
+            include_lowest=True,
+        )
+
+        # Define covariates
+        covariates = [
+            "RIAGENDR",
+            "RIDRETH3",
+            "DMDEDUC2",
+            "INDFMPIR",
+            "DR1TSUGR",
+            "DR2TSUGR",
+            "DR1TKCAL",
+            "DR2TKCAL",
+            "DBQ700",
+            "FSDAD",
+            "PAQ650",
+            "PAD660",
+            "PAQ665",
+            "PAD675",
+            "PAD680",
+            "SMQ020",
+            "SMQ040",
+            "LBXCOT",
+            "ALQ121",
+            "ALQ130",
+            "SLD012",
+            "SLQ050",
+            "DIQ010",
+            "BPQ020",
+            "BPQ050A",
+            "BPQ080",
+            "MCQ160B",
+            "MCQ160C",
+            "MCQ160D",
+            "MCQ160E",
+            "MCQ160F",
+            "MCQ160L",
+            "MCQ160O",
+            "MCQ220",
+            "PHAFSTHR",
+        ]
+
+        # Define predictors
+        predictors = {
+            "metabolic": [
+                "LBXGLU",
+                "LBXSGL",
+                "LBXIN",
+                "LBXGH",
+                "LBXTR",
+                "LBDLDL",
+                "LBXTC",
+                "LBDHDD",
+            ],
+            "vascular": ["BPXSY", "BPXDI", "BMXBMI", "BMXWAIST"],
+            "hepatic": ["LBXSATSI", "LBXSGTSI"],
+            "inflammatory": ["LBXHSCRP"],
+            "renal": ["LBXSCR", "LBXSBU", "LBXSUA"],
+            "iron": ["LBXFER", "LBXIRN", "LBDPCT", "LBXTFR"],
+        }
+
+        # Define DPQ_J items
+        dpq_j_items = [
+            "DPQ010",
+            "DPQ020",
+            "DPQ030",
+            "DPQ040",
+            "DPQ050",
+            "DPQ060",
+            "DPQ070",
+            "DPQ080",
+            "DPQ090",
+        ]
+
+        # Create DPQ_J total column
+        df["DPQ_J_total"] = 0
+
+        # Calculate DPQ_J scores
+        for item in dpq_j_items:
+        # same length as df: keep 0–3, otherwise use 0
+            valid = df[item].where(df[item].isin([0, 1, 2, 3]), other=0)
+            df["DPQ_J_total"] += valid
+            print(df["DPQ_J_total"].max())
 
     # RQ: Accounting for age groups, is there an association between BMI and
     # mean sugar intake over 2 days?

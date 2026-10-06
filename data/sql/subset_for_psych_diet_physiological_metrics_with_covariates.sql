@@ -42,7 +42,7 @@ SELECT
     -- metabolic markers
     g."LBXGLU", -- fasting plasma glucose (mg/dL)
     i."LBXIN", -- fasting insulin (uU/mL)
-    gh."LBXGH", -- glycohemoglobin HbA1c (%)
+    gh."LBXGH", -- glycohemoglobin HbA1c (percent)
     tg."LBXTR", -- fasting triglyceride (mg/dL)
     tg."LBDLDL", -- LDL-C Friedewald (mg/dL)
     tc."LBXTC", -- total cholesterol (mg/dL)
@@ -70,7 +70,7 @@ SELECT
     -- iron status
     fer."LBXFER", -- ferritin (ng/mL)
     irn."LBXIRN", -- iron, frozen serum (ug/dL)
-    irn."LBDPCT", -- transferrin saturation (%)
+    irn."LBDPCT", -- transferrin saturation (percent)
     tfr."LBXTFR", -- transferrin receptor (mg/L)
     -- fasting context (for glucose/insulin/lipids interpretation; not a weight)
     fq."PHAFSTHR", -- total length of food fast, hours
