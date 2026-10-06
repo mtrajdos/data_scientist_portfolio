@@ -12,6 +12,21 @@ class DataPlotter:
         self.df_loader = DfLoader()
         self.project_root = self.df_loader.project_root
 
+    # RQ: What are the effects of physiological markers (cardiometabolic, renal, etc.)
+    # on psychological complaints and symptoms?
+    def plot_forest_effect_sizes_of_phys_markers_on_phq_9(self):
+        self.sql = (
+            self.project_root
+            / "data/sql/subset_for_psych_diet_physiological_metrics_with_covariates.sql"
+        ).read_text(encoding="utf-8")
+        self.df = pd.read_sql(self.sql, self.df_loader.engine)
+        df = self.df.copy()
+
+        
+
+
+    # RQ: Accounting for age groups, is there an association between BMI and
+    # mean sugar intake over 2 days?
     def plot_bmi_vs_mean_sugar_intake_by_age_group(self):
         self.sql = (
             self.project_root / "data/sql/subset_for_psych_and_diet_metrics.sql"
@@ -53,7 +68,9 @@ class DataPlotter:
             row = i + 1
             color = palette[i % len(palette)]
             # Subset to rows in this age bracket that have both BMI and 2-day mean sugar
-            plot_df = df.loc[df["age_group"] == age_label, ["BMXBMI", "TSUGR_mean"]].dropna()
+            plot_df = df.loc[
+                df["age_group"] == age_label, ["BMXBMI", "TSUGR_mean"]
+            ].dropna()
 
             if plot_df.empty:
                 note = "n=0"
@@ -76,7 +93,9 @@ class DataPlotter:
                     # Pearson correlation and OLS line (sugar ~ BMI) for this age band
                     r = plot_df["BMXBMI"].corr(plot_df["TSUGR_mean"])
                     coeffs = np.polyfit(plot_df["BMXBMI"], plot_df["TSUGR_mean"], deg=1)
-                    x_line = np.linspace(plot_df["BMXBMI"].min(), plot_df["BMXBMI"].max(), 100)
+                    x_line = np.linspace(
+                        plot_df["BMXBMI"].min(), plot_df["BMXBMI"].max(), 100
+                    )
                     y_line = coeffs[0] * x_line + coeffs[1]
                     fig.add_trace(
                         go.Scatter(
@@ -137,6 +156,8 @@ class DataPlotter:
         try:
             fig.write_image(out_dir / "bmi_sugar_intake.pdf", format="pdf")
         except (ValueError, ImportError, RuntimeError) as exc:
-            print(f"PDF export skipped ({exc}). Install kaleido for PDF: pip install kaleido")
+            print(
+                f"PDF export skipped ({exc}). Install kaleido for PDF: pip install kaleido"
+            )
 
         fig.show()
