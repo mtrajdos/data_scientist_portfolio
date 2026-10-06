@@ -11,61 +11,62 @@ Portfolio project for end-to-end clinical survey workflows: download public NHAN
 | Database driver (R) | `RPostgreSQL` + `DBI`                                                                                                           |
 | Database            | **PostgreSQL 18** (developed against 18.6)                                                                                      |
 | Exploration         | SQL under `data/sql/`; `psql` or a Cursor DB client (e.g. DBCode)                                                               |
-| Analysis            | **Python 3**: `pandas`, `sqlalchemy`, `psycopg2`, `python-dotenv`, `plotly`, `kaleido` (PDF export)                            |
+| Analysis            | **Python 3**: `pandas`, `sqlalchemy`, `psycopg2`, `python-dotenv`, `plotly`, `kaleido` (PDF export), `numpy`                   |
 | OS notes            | Windows-friendly; Bash download helper is optional/local                                                                        |
 
 ## Pipeline overview
 
-| Stage    | What runs                                        | Output                                                     |
-| -------- | ------------------------------------------------ | ---------------------------------------------------------- |
-| Download | Local sync helper (gitignored)                   | `.xpt` files in `data/raw/nhanes/2017-2018/`               |
-| Document | `data/raw/nhanes/2017-2018/_file_list.txt`       | Human-readable form → question → code reference            |
-| Load     | `data/ingest/write_tables_to_DB.R`               | One Postgres table per XPT **with raw numeric/text codes** |
-| Codebook | Same script (`nhanesCodebook` → flatten)         | Postgres table `codebook` (`form`, `variable`, `code`, `meaning`)  |
-| Query    | `data/sql/*.sql`                                 | Joins for psych / diet / anthropometry subsets             |
-| Analyze  | `src/consume/data_plotter.py`                    | Interactive HTML + PDF figures under `data/static/figures/` |
+| Stage    | What runs                          | Output                                                            |
+| -------- | ---------------------------------- | ----------------------------------------------------------------- |
+| Download | Local sync helper (gitignored)     | `.xpt` files in `data/raw/nhanes/2017-2018/`                      |
+| Document | `_file_list.txt`                   | Human-readable form → question → code reference                   |
+| Load     | `data/ingest/write_tables_to_DB.R` | One Postgres table per XPT **with raw numeric/text codes**        |
+| Codebook | Same script (`nhanesCodebook`)     | Postgres `codebook` (`form`, `variable`, `code`, `meaning`)       |
+| Query    | `data/sql/*.sql`                   | Psych / diet / lab / covariate analysis extracts (unweighted)     |
+| Analyze  | `python main.py`                   | Plotly figures under `data/static/figures/`                       |
 
-Tables join on `SEQN` (respondent ID). Survey tables keep **codes** (e.g. `0`, `1`, `3`). Human-readable labels live in the separate `codebook` table and are joined when needed.
+Tables join on `SEQN` (respondent ID). Survey tables keep **codes** (e.g. `0`, `1`, `3`). Human-readable labels live in `codebook` and are joined when needed.
 
 ## Repository layout
 
 ```
+main.py                               # Entry point (DataPlotter methods)
 data/
   ingest/
     write_tables_to_DB.R              # Load XPTs + build/write codebook
   sql/
     demo.sql                          # Small exploratory example
-    subset_for_psych_and_diet_metrics.sql  # DEMO + DPQ + diet/behavior join
-  queried/                            # Placeholder for query exports
+    subset_for_psych_and_diet_metrics.sql
+    subset_for_psych_diet_physiological_metrics_with_covariates.sql
   raw/nhanes/2017-2018/               # Local XPTs + _file_list.txt
   processed/                          # Intermediate outputs (gitignored)
   static/figures/                     # Plotly HTML/PDF exports
 src/
+  __init__.py
   consume/
-    data_plotter.py                   # Pull SQL subset; BMI vs sugar by age (Plotly)
+    __init__.py
+    df_loader.py                      # .env + SQLAlchemy engine + project root
+    data_plotter.py                   # Analysis / Plotly figures
 tests/
 .Renviron                             # DB credentials for R (gitignored)
 .env                                  # DB credentials for Python (gitignored)
 ```
 
-Raw XPTs and secrets are not committed. Environment-specific helpers such as the NHANES sync script stay local via `.gitignore`.
+Raw XPTs, secrets, and local notebooks (`notebook.ipynb`) are not committed.
 
 ## Requirements
 
-- **R** ≥ 4.x  
-  Packages: `haven`, `nhanesA`, `stringr`, `RPostgreSQL`, `DBI`
-- **PostgreSQL 18** (server running; default port **5432**)  
-  Developed/tested with **PostgreSQL 18.6**
-- **Python 3**  
-  Packages: `pandas`, `sqlalchemy`, `psycopg2-binary`, `python-dotenv`, `plotly`, `kaleido`, `numpy`
-- Network access to `wwwn.cdc.gov` (required for `nhanesCodebook()` during load)
+- **R** ≥ 4.x — `haven`, `nhanesA`, `stringr`, `RPostgreSQL`, `DBI`
+- **PostgreSQL 18** (default port **5432**; developed against **18.6**)
+- **Python 3** — `pandas`, `sqlalchemy`, `psycopg2-binary`, `python-dotenv`, `plotly`, `kaleido`, `numpy`
+- Network access to `wwwn.cdc.gov` during codebook load
 - Optional: Bash + `curl` (or WSL) for the local sync script
 
 ## Database setup
 
 ### 1. Install and start PostgreSQL 18
 
-Ensure the service is running and listening on **5432** (or set `DB_PORT` to match).
+Listening on **5432** (or set `DB_PORT`).
 
 ### 2. Create role and database
 
@@ -76,7 +77,7 @@ CREATE DATABASE "NHANES_2017-2018" OWNER your_user;
 
 ### 3. Set credentials
 
-**R** — create `.Renviron` in the project root (gitignored):
+**R** — `.Renviron` in the project root:
 
 ```
 DB_USER=your_user
@@ -85,12 +86,9 @@ DB_HOST=localhost
 DB_PORT=5432
 ```
 
-Notes:
+Database name is set in R (`dbname = "NHANES_2017-2018"`), not in `.Renviron`.
 
-- Database name is set in R (`dbname = "NHANES_2017-2018"`), not in `.Renviron`.
-- Restart R or call `readRenviron(".Renviron")` after edits.
-
-**Python** — create `.env` in the project root (gitignored):
+**Python** — `.env` in the project root:
 
 ```
 DB_USER=your_user
@@ -102,13 +100,11 @@ DB_NAME=NHANES_2017-2018
 
 Never commit `.Renviron` or `.env`.
 
-### 4. Install R packages
+### 4–5. Install packages
 
 ```r
 install.packages(c("haven", "nhanesA", "stringr", "RPostgreSQL", "DBI"))
 ```
-
-### 5. Install Python packages
 
 ```powershell
 pip install pandas sqlalchemy psycopg2-binary python-dotenv plotly kaleido numpy
@@ -116,7 +112,7 @@ pip install pandas sqlalchemy psycopg2-binary python-dotenv plotly kaleido numpy
 
 ## Usage
 
-Work from the **project root** so relative paths, `.Renviron`, and `.env` resolve correctly.
+Always run from the **project root** so `.env`, `.Renviron`, and `src.*` imports resolve.
 
 ### Load survey tables + codebook
 
@@ -124,91 +120,83 @@ Work from the **project root** so relative paths, `.Renviron`, and `.env` resolv
 source("data/ingest/write_tables_to_DB.R")
 ```
 
-What the script does:
+1. Connect with `.Renviron`.
+2. Read each local `.xpt` with `haven::read_xpt` (raw codes).
+3. Call `nhanesA::nhanesCodebook` per file (`tryCatch`).
+4. Write one Postgres table per questionnaire + flattened **`codebook`**.
 
-1. Reads `.Renviron` and connects to PostgreSQL.
-2. Reads each local `.xpt` with `haven::read_xpt` (raw codes, not translated labels).
-3. For each table, calls `nhanesA::nhanesCodebook(file)` (wrapped in `tryCatch`).
-4. Collects per-variable codebook entries, skipping `SEQN`.
-5. Writes one Postgres table per questionnaire (`DPQ_J`, `DEMO_J`, …) with `overwrite = TRUE`.
-6. Flattens nested codebook objects into a single data frame and writes table **`codebook`**.
+| Column     | Content                                   |
+| ---------- | ----------------------------------------- |
+| `form`     | e.g. `DPQ_J`                              |
+| `variable` | e.g. `DPQ010`                             |
+| `code`     | Stored survey value (e.g. `0`, `1`, `7`)  |
+| `meaning`  | CDC label (e.g. `Not at all`)             |
 
-#### `codebook` table shape
+### SQL extracts
 
-| Column     | Content                                               |
-| ---------- | ----------------------------------------------------- |
-| `form`     | Questionnaire / table id (e.g. `DPQ_J`)               |
-| `variable` | Column / question id (e.g. `DPQ010`)                  |
-| `code`     | Stored value in the survey table (e.g. `0`, `1`, `7`) |
-| `meaning`  | CDC value description (e.g. `Not at all`)             |
+Quote mixed-case names (`"DPQ_J"`, `"SEQN"`). Filter on **codes** unless joining `codebook`.
 
-Entries without an answers table (e.g. skip-logic “BOX” items) are skipped. If `nhanesCodebook` fails for a file (package/HTML issue), that file’s codebook is skipped with a warning; other tables still load.
+| File | Role |
+| ---- | ---- |
+| `subset_for_psych_and_diet_metrics.sql` | Slim DEMO ⋈ DPQ + diet / BMI / smoking (EDA: BMI vs sugar) |
+| `subset_for_psych_diet_physiological_metrics_with_covariates.sql` | Main analysis extract: PHQ-9 items, labs, BP, diet, PA, smoking, alcohol, comorbidities |
+| `demo.sql` | Tiny exploratory example |
 
-Example:
+Both analysis extracts are **unweighted** (no `WTMEC2YR` / fasting subsample weights). Adults only (`RIDAGEYR >= 18`).
 
-```sql
-SELECT * FROM codebook WHERE form = 'DPQ_J' AND variable = 'DPQ010';
-```
+Avoid bare `%` in SQL comments when using `pd.read_sql` + psycopg2 (`%` is treated as a bind placeholder). Prefer `text(sql)` + a connection, or write “percent” in comments.
 
-Join labels when displaying results (codes stay in the survey table):
-
-```sql
-SELECT d."SEQN", d."DPQ010", c.meaning
-FROM "DPQ_J" d
-LEFT JOIN codebook c
-  ON c.form = 'DPQ_J'
- AND c.variable = 'DPQ010'
- AND c.code = d."DPQ010"::text
-LIMIT 10;
-```
-
-### Query notes
-
-- Quote mixed-case names: `"DPQ_J"`, `"SEQN"`.
-- Filter on **codes**, not label text, unless you join `codebook`.
-- Main analysis subset: `data/sql/subset_for_psych_and_diet_metrics.sql`  
-  - Spine: `DEMO_J` ⋈ `DPQ_J` (adults, age ≥ 18)  
-  - LEFT JOIN: diet behavior (`DBQ_J`), food security (`FSQ_J`), day-1/2 totals (`DR1TOT_J` / `DR2TOT_J`), body measures (`BMX_J`), smoking (`SMQ_J`)  
-  - Survey weights are omitted on purpose (sample-only analysis; see Data notes)
-- Smaller example: `data/sql/demo.sql`
+### Python analysis
 
 ```powershell
-& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -U your_user -d "NHANES_2017-2018"
+python main.py
 ```
 
-### Python plots
+`main.py` constructs `DataPlotter` (`DfLoader` opens the DB) and calls the active method.
 
-```powershell
-python src/consume/data_plotter.py
-```
+| Method | Status / intent |
+| ------ | --------------- |
+| `plot_bmi_vs_mean_sugar_intake_by_age_group` | Working EDA: Plotly column of age panels, BMI vs 2-day mean sugar, OLS + Pearson `r` |
+| `plot_forest_effect_sizes_of_phys_markers_on_phq_9` | In progress: PHQ-9 scoring + adjusted associations of physiological markers → forest plot |
 
-What the script does:
+#### Analysis targets (forest plot)
 
-1. Loads `.env` and connects via SQLAlchemy (`postgresql+psycopg2`).
-2. Runs `subset_for_psych_and_diet_metrics.sql`.
-3. Builds age groups and a 2-day mean total sugar (`DR1TSUGR` / `DR2TSUGR`, both required).
-4. Plots BMI vs mean sugar in one Plotly subplot per age band (OLS line + Pearson `r`).
-5. Writes `data/static/figures/bmi_sugar_intake.html` and `.pdf` (PDF needs `kaleido`).
+**Outcome:** PHQ-9 total from `DPQ010`–`DPQ090` (valid codes 0–3; `DPQ100` is impairment, not in the sum).
 
-### Human-readable reference (optional)
+**Exposures (by group for colored forest facets):**
 
-`data/raw/nhanes/2017-2018/_file_list.txt` remains a manual Ctrl+F reference (form / question / codes). The live lookup used by SQL is the Postgres **`codebook`** table built from `nhanesCodebook`.
+| Group | Variables |
+| ----- | --------- |
+| Metabolic | `LBXGLU`, `LBXIN`, `LBXGH`, `LBXTR`, `LBDLDL`, `LBXTC`, `LBDHDD` |
+| Vascular | mean `BPXSY1–3`, mean `BPXDI1–3`, `BMXBMI`, `BMXWAIST` |
+| Hepatic | `LBXSATSI` (ALT), `LBXSGTSI` (GGT) |
+| Inflammatory | `LBXHSCRP` |
+| Renal | `LBXSCR`, `LBXSBU`, `LBXSUA` |
+| Iron | `LBXFER`, `LBXIRN`, `LBDPCT`, `LBXTFR` |
+
+**Core covariates (adjustment / sensitivity):** age, sex, race/ethnicity, education, PIR, diet energy/sugar, activity (`PAQ*`), smoking (`SMQ*` / `LBXCOT`), alcohol (`ALQ*`), sleep, diabetes/BP/chol history, selected `MCQ*` comorbidities; `PHAFSTHR` for fasting lab context.
+
+Public 2017–2018 NHANES does **not** include most molecular markers from broader depression–metabolism literature (ceramides, HRV, cytokines, etc.). Only analytes present in the local XPTs are used.
+
+### Human-readable reference
+
+`data/raw/nhanes/2017-2018/_file_list.txt` — Ctrl+F codebook. Live SQL labels: Postgres **`codebook`**.
 
 ## Data notes
 
-- Public-use NHANES only; join key across files is `SEQN`.
-- Some files have **multiple rows per `SEQN`**. A primary key on `SEQN` alone is not valid for every table.
-- Adult PHQ-9 items are in public `DPQ_J` (age ≥ 18 in this pipeline). Youth PHQ (`DPQY_J_R`) is RDC-only and not used here.
-- Analyses currently treat the extract as an **unweighted sample** (“among respondents with available data”), not as nationally representative US adults. Survey weights (`WTMEC2YR`, dietary weights, etc.) are intentionally left out of the analysis SQL until weighting is designed in.
+- Public-use NHANES only; join key `SEQN`.
+- Some tables have multiple rows per `SEQN`.
+- Adult PHQ-9 is public (`DPQ_J`); youth PHQ is RDC-only.
+- Labs are **cross-sectional** (one MEC visit). BP has same-visit repeats; diet has up to two recalls — not longitudinal biomarker repeats.
+- Framing: **unweighted sample** (“among respondents with available data”), not US population inference, until weights are designed in.
 - Do not commit `.Renviron`, `.env`, or raw clinical extracts.
 
 ## Status
 
-- Download + local XPT cache: in place (sync helper local/gitignored)
-- Human codebook text (`_file_list.txt`): in place
-- PostgreSQL load of raw-coded survey tables: implemented (`data/ingest/write_tables_to_DB.R`)
-- Postgres `codebook` lookup from `nhanesCodebook`: implemented (flattened `form` / `variable` / `code` / `meaning`)
-- SQL exploration (`data/sql/`): psych + diet subset in place
-- Python analysis (`src/consume/data_plotter.py`): Plotly BMI vs 2-day mean sugar by age
-- PHQ-9 scoring / further psych metrics: not yet implemented
-- Formal schema / primary keys: not finalized
+- Download + local XPT cache: in place
+- `_file_list.txt` + Postgres load + `codebook`: implemented
+- SQL: diet/psych subset + expanded phys/covariate subset
+- Python package layout (`src.consume`, `main.py`): in place
+- BMI vs 2-day mean sugar (Plotly): implemented
+- PHQ-9 scoring + marker effect sizes / forest plot: in progress
+- Formal schema / survey weighting: not finalized
