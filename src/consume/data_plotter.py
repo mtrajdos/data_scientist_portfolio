@@ -11,12 +11,12 @@ class DataPlotter:
     def __init__(self):
         self.df_loader = DfLoader()
         self.project_root = self.df_loader.project_root
+
+    def plot_bmi_vs_mean_sugar_intake_by_age_group(self):
         self.sql = (
             self.project_root / "data/sql/subset_for_psych_and_diet_metrics.sql"
         ).read_text(encoding="utf-8")
         self.df = pd.read_sql(self.sql, self.df_loader.engine)
-
-    def plot_bmi_vs_mean_sugar_intake_by_age_group(self):
         df = self.df.copy()
 
         # Plot BMI vs mean sugar intake (average of Day 1 and Day 2 recalls when both exist):
