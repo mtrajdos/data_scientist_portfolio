@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import statsmodels.formula.api as smf
 from plotly.subplots import make_subplots
 
 from src.consume.df_loader import DfLoader
@@ -91,27 +92,63 @@ class DataPlotter:
         }
 
         # Define DPQ_J items
-        dpq_j_items = [
-            "DPQ010",
-            "DPQ020",
-            "DPQ030",
-            "DPQ040",
-            "DPQ050",
-            "DPQ060",
-            "DPQ070",
-            "DPQ080",
-            "DPQ090",
-        ]
+        dpq_j_items = [f"DPQ0{i}0" for i in range(1, 10)]
 
         # Create DPQ_J total column
         df["DPQ_J_total"] = 0
 
+        # Create a placeholder for forest plot data
+        fp_data = []
+
         # Calculate DPQ_J scores
         for item in dpq_j_items:
-        # same length as df: keep 0–3, otherwise use 0
+            # same length as df: keep 0–3, otherwise use 0
             valid = df[item].where(df[item].isin([0, 1, 2, 3]), other=0)
             df["DPQ_J_total"] += valid
             print(df["DPQ_J_total"].max())
+
+        # Calculate effect size for each predictor in each age group
+        for category, predictor_list in predictors.items():
+            print(f"--- Processing {category} domain ---")
+            
+            for predictor in predictor_list:
+                print(f"Analyzing predictor: {predictor}")
+                
+                for age in df["age_group"].dropna().unique():
+                    sub_df = df[df["age_group"] == age].dropna(
+                    subset=[predictor, "DPQ_J_total"] + covariates
+                    )
+
+                    formula = f"DPQ_J_total ~ {predictor} + " + " + ".join(covariates)
+                    model = smf.ols(formula=formula, data=sub_df).fit() 
+
+                    effect_size = model.params[predictor]
+                    p_value = model.pvalues[predictor]
+                    std_err = model.bse[predictor]
+                    conf_int = model.conf_int().loc[predictor]
+                    ci_lower = conf_int[0]
+                    ci_upper = conf_int[1]
+
+                    # Append all data points as a flat row
+                    fp_data.append({
+                        "category": category,
+                        "predictor": predictor,
+                        "age_group": age,
+                        "effect_size": effect_size,
+                        "std_err": std_err,
+                        "ci_lower": ci_lower,
+                        "ci_upper": ci_upper,
+                        "p_value": p_value,
+                        "sample_size": len(sub_df)
+                    })
+            
+        fp_df = pd.DataFrame(fp_data)
+        
+        for age_group in fp_df["age_group"].unique():
+            print()
+
+
+
 
     # RQ: Accounting for age groups, is there an association between BMI and
     # mean sugar intake over 2 days?

@@ -6,6 +6,8 @@ __pycache__/
 .lintr
 .ruff_cache/
 notebook.ipynb
+practice.py
+exercises/
 
 
 !data/raw/.gitkeep
