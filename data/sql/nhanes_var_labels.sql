@@ -37,7 +37,7 @@ FROM (
         -- Metabolic markers
         ('LBXGLU', 'Fasting glucose (mg/dL)'),
         ('LBXIN', 'Insulin (uU/mL)'),
-        ('LBXGH', 'Glycohemoglobin / HbA1c (%)'),
+        ('LBXGH', 'Glycohemoglobin / HbA1c (percent)'),
         ('LBXTR', 'Triglyceride (mg/dL)'),
         ('LBDLDL', 'LDL cholesterol (mg/dL)'),
         ('LBXTC', 'Total cholesterol (mg/dL)'),
@@ -49,9 +49,11 @@ FROM (
         ('BPXSY1', 'Systolic BP 1st reading (mm Hg)'),
         ('BPXSY2', 'Systolic BP 2nd reading (mm Hg)'),
         ('BPXSY3', 'Systolic BP 3rd reading (mm Hg)'),
+        ('BPXSY4', 'Systolic BP 4th reading (mm Hg)'),
         ('BPXDI1', 'Diastolic BP 1st reading (mm Hg)'),
         ('BPXDI2', 'Diastolic BP 2nd reading (mm Hg)'),
         ('BPXDI3', 'Diastolic BP 3rd reading (mm Hg)'),
+        ('BPXDI4', 'Diastolic BP 4th reading (mm Hg)'),
         ('BPXPLS', 'Pulse (60 sec)'),
         ('BMXBMI', 'BMI (kg/m²)'),
         ('BMXWAIST', 'Waist circumference (cm)'),
@@ -67,7 +69,7 @@ FROM (
         -- Iron
         ('LBXFER', 'Ferritin (ng/mL)'),
         ('LBXIRN', 'Serum iron (ug/dL)'),
-        ('LBDPCT', 'Transferrin saturation (%)'),
+        ('LBDPCT', 'Transferrin saturation (percent)'),
         ('LBXTFR', 'Transferrin receptor (mg/L)'),
         -- Fasting context
         ('PHAFSTHR', 'Food fast length (hours)'),

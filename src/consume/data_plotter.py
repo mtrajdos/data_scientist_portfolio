@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import statsmodels.formula.api as smf
 from plotly.subplots import make_subplots
+from sqlalchemy import text
 
 from src.consume.df_loader import DfLoader
 
@@ -21,15 +22,14 @@ class DataPlotter:
             self.project_root
             / "data/sql/subset_for_psych_diet_physiological_metrics_with_covariates.sql"
         ).read_text(encoding="utf-8")
-        self.df = pd.read_sql(self.data_sql, self.df_loader.engine)
+        self.df = pd.read_sql(text(self.data_sql), self.df_loader.engine)
         df = self.df.copy()
 
         # Load label data
         self.label_sql = (
-            self.project_root
-            / "data/sql/nhanes_var_labels.sql"
+            self.project_root / "data/sql/nhanes_var_labels.sql"
         ).read_text(encoding="utf-8")
-        self.labels = pd.read_sql(self.label_sql, self.df_loader.engine)
+        self.labels = pd.read_sql(text(self.label_sql), self.df_loader.engine)
         labels = self.labels.copy()
 
         age_labels = ["18-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+"]
@@ -67,7 +67,7 @@ class DataPlotter:
             "MCQ160F",
             "MCQ160L",
             "MCQ160O",
-            "MCQ220"
+            "MCQ220",
         ]
 
         # Define predictors
@@ -82,7 +82,18 @@ class DataPlotter:
                 "LBXTC",
                 "LBDHDD",
             ],
-            "vascular": ["BPXSY", "BPXDI", "BMXBMI", "BMXWAIST"],
+            "vascular": [
+                "BPXSY1",
+                "BPXSY2",
+                "BPXSY3",
+                "BPXSY4",
+                "BPXDI1",
+                "BPXDI2",
+                "BPXDI3",
+                "BPXDI4",
+                "BMXBMI",
+                "BMXWAIST",
+            ],
             "hepatic": ["LBXSATSI", "LBXSGTSI"],
             "inflammatory": ["LBXHSCRP"],
             "renal": ["LBXSCR", "LBXSBU", "LBXSUA"],
@@ -107,17 +118,17 @@ class DataPlotter:
         # Calculate effect size for each predictor in each age group
         for category, predictor_list in predictors.items():
             print(f"--- Processing {category} domain ---")
-            
+
             for predictor in predictor_list:
                 print(f"Analyzing predictor: {predictor}")
-                
+
                 for age in df["age_group"].dropna().unique():
                     sub_df = df[df["age_group"] == age].dropna(
-                    subset=[predictor, "DPQ_J_total"] + covariates
+                        subset=[predictor, "DPQ_J_total"] + covariates
                     )
 
                     formula = f"DPQ_J_total ~ {predictor} + " + " + ".join(covariates)
-                    model = smf.ols(formula=formula, data=sub_df).fit() 
+                    model = smf.ols(formula=formula, data=sub_df).fit()
 
                     effect_size = model.params[predictor]
                     p_value = model.pvalues[predictor]
@@ -127,22 +138,24 @@ class DataPlotter:
                     ci_upper = conf_int[1]
 
                     # Append all data points as a flat row
-                    fp_data.append({
-                        "category": category,
-                        "predictor": predictor,
-                        "age_group": age,
-                        "effect_size": effect_size,
-                        "std_err": std_err,
-                        "ci_lower": ci_lower,
-                        "ci_upper": ci_upper,
-                        "p_value": p_value,
-                        "sample_size": len(sub_df)
-                    })
-            
+                    fp_data.append(
+                        {
+                            "category": category,
+                            "predictor": predictor,
+                            "age_group": age,
+                            "effect_size": effect_size,
+                            "std_err": std_err,
+                            "ci_lower": ci_lower,
+                            "ci_upper": ci_upper,
+                            "p_value": p_value,
+                            "sample_size": len(sub_df),
+                        }
+                    )
+
         fp_df = pd.DataFrame(fp_data)
-        
+
         for age_group in fp_df["age_group"].unique():
-            print()
+            print(fp_df["age_group"])
 
     # RQ: Accounting for age groups, is there an association between BMI and
     # mean sugar intake over 2 days?
@@ -150,7 +163,7 @@ class DataPlotter:
         self.data_sql = (
             self.project_root / "data/sql/subset_for_psych_and_diet_metrics.sql"
         ).read_text(encoding="utf-8")
-        self.df = pd.read_sql(self.data_sql, self.df_loader.engine)
+        self.df = pd.read_sql(text(self.data_sql), self.df_loader.engine)
         df = self.df.copy()
 
         # Plot BMI vs mean sugar intake (average of Day 1 and Day 2 recalls when both exist):
