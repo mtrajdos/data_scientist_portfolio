@@ -10,140 +10,145 @@
 --   inflammatory: LBXHSCRP
 --   renal:       LBXSCR, LBXSBU, LBXSUA
 --   iron:        LBXFER, LBXIRN, LBDPCT, LBXTFR
+--
+-- Short plot labels (code -> short_label): see nhanes_var_labels.sql
+--   labels = pd.read_sql((project_root / "data/sql/nhanes_var_labels.sql").read_text(encoding="utf-8"), engine)
+--   label_map = dict(zip(labels["code"], labels["short_label"]))
 
 SELECT
     -- DEMO_J: who (unweighted sample analysis — no survey weights)
-    d."SEQN", -- respondent sequence number
-    d."RIDAGEYR", -- age in years at screening
-    d."RIAGENDR", -- gender
-    d."RIDRETH3", -- race/Hispanic origin w/ NH Asian
-    d."DMDEDUC2", -- education level - adults 20+
-    d."INDFMPIR", -- ratio of family income to poverty
+    d."SEQN", -- Respondent sequence number
+    d."RIDAGEYR", -- Age at screening (years)
+    d."RIAGENDR", -- Gender
+    d."RIDRETH3", -- Race/Hispanic origin
+    d."DMDEDUC2", -- Education (adults 20+)
+    d."INDFMPIR", -- Income-to-poverty ratio
     -- DPQ_J: PHQ-9 items (score total / severity later in Python)
-    p."DPQ010", -- have little interest in doing things
-    p."DPQ020", -- feeling down, depressed, or hopeless
-    p."DPQ030", -- trouble sleeping or sleeping too much
-    p."DPQ040", -- feeling tired or having little energy
-    p."DPQ050", -- poor appetite or overeating
-    p."DPQ060", -- feeling bad about yourself
-    p."DPQ070", -- trouble concentrating on things
-    p."DPQ080", -- moving or speaking slowly or too fast
-    p."DPQ090", -- thought you would be better off dead
-    p."DPQ100", -- difficulty these problems have caused
+    p."DPQ010", -- Little interest in doing things
+    p."DPQ020", -- Feeling down or hopeless
+    p."DPQ030", -- Trouble sleeping
+    p."DPQ040", -- Feeling tired / little energy
+    p."DPQ050", -- Poor appetite or overeating
+    p."DPQ060", -- Feeling bad about yourself
+    p."DPQ070", -- Trouble concentrating
+    p."DPQ080", -- Moving/speaking slowly or fast
+    p."DPQ090", -- Thoughts of being better off dead
+    p."DPQ100", -- Difficulty caused by problems
     -- DLQ_J / HUQ_J / SLQ_J: adjacent psych / function / sleep metrics
-    dl."DLQ040", -- serious difficulty concentrating
-    dl."DLQ050", -- serious difficulty walking
-    dl."DLQ060", -- difficulty dressing or bathing
-    dl."DLQ080", -- difficulty doing errands alone
-    hu."HUQ010", -- general health condition
-    sl."SLD012", -- sleep hours - weekdays or workdays
-    sl."SLD013", -- sleep hours - weekends
-    sl."SLQ050", -- ever told doctor had trouble sleeping
+    dl."DLQ040", -- Serious difficulty concentrating
+    dl."DLQ050", -- Serious difficulty walking
+    dl."DLQ060", -- Difficulty dressing or bathing
+    dl."DLQ080", -- Difficulty doing errands alone
+    hu."HUQ010", -- General health condition
+    sl."SLD012", -- Sleep hours (weekdays)
+    sl."SLD013", -- Sleep hours (weekends)
+    sl."SLQ050", -- Ever told doctor: trouble sleeping
     -- metabolic markers
-    g."LBXGLU", -- fasting plasma glucose (mg/dL)
-    i."LBXIN", -- fasting insulin (uU/mL)
-    gh."LBXGH", -- glycohemoglobin HbA1c (percent)
-    tg."LBXTR", -- fasting triglyceride (mg/dL)
-    tg."LBDLDL", -- LDL-C Friedewald (mg/dL)
-    tc."LBXTC", -- total cholesterol (mg/dL)
-    h."LBDHDD", -- direct HDL-C (mg/dL)
-    bp_chem."LBXSGL", -- serum glucose, refrigerated (mg/dL, not fasting-specific)
+    g."LBXGLU", -- Fasting glucose (mg/dL)
+    i."LBXIN", -- Insulin (uU/mL)
+    gh."LBXGH", -- Glycohemoglobin / HbA1c (%)
+    tg."LBXTR", -- Triglyceride (mg/dL)
+    tg."LBDLDL", -- LDL cholesterol (mg/dL)
+    tc."LBXTC", -- Total cholesterol (mg/dL)
+    h."LBDHDD", -- HDL cholesterol (mg/dL)
+    bp_chem."LBXSGL", -- Serum glucose (mg/dL)
     -- vascular / anthropometry
-    bpx."BPXSY1", -- systolic BP 1st reading (mm Hg)
-    bpx."BPXSY2", -- systolic BP 2nd reading (mm Hg)
-    bpx."BPXSY3", -- systolic BP 3rd reading (mm Hg)
-    bpx."BPXDI1", -- diastolic BP 1st reading (mm Hg)
-    bpx."BPXDI2", -- diastolic BP 2nd reading (mm Hg)
-    bpx."BPXDI3", -- diastolic BP 3rd reading (mm Hg)
-    bpx."BPXPLS", -- 60 sec pulse (30 sec pulse * 2)
-    b."BMXBMI", -- body mass index (kg/m**2)
-    b."BMXWAIST", -- waist circumference (cm)
+    bpx."BPXSY1", -- Systolic BP 1st reading (mm Hg)
+    bpx."BPXSY2", -- Systolic BP 2nd reading (mm Hg)
+    bpx."BPXSY3", -- Systolic BP 3rd reading (mm Hg)
+    bpx."BPXDI1", -- Diastolic BP 1st reading (mm Hg)
+    bpx."BPXDI2", -- Diastolic BP 2nd reading (mm Hg)
+    bpx."BPXDI3", -- Diastolic BP 3rd reading (mm Hg)
+    bpx."BPXPLS", -- Pulse (60 sec)
+    b."BMXBMI", -- BMI (kg/m²)
+    b."BMXWAIST", -- Waist circumference (cm)
     -- hepatic
     bp_chem."LBXSATSI", -- ALT (U/L)
     bp_chem."LBXSGTSI", -- GGT (IU/L)
     -- inflammatory
-    crp."LBXHSCRP", -- hs C-reactive protein (mg/L)
+    crp."LBXHSCRP", -- hs-CRP (mg/L)
     -- renal / purine
-    bp_chem."LBXSCR", -- creatinine, serum (mg/dL)
-    bp_chem."LBXSBU", -- blood urea nitrogen (mg/dL)
-    bp_chem."LBXSUA", -- uric acid (mg/dL)
+    bp_chem."LBXSCR", -- Serum creatinine (mg/dL)
+    bp_chem."LBXSBU", -- Blood urea nitrogen (mg/dL)
+    bp_chem."LBXSUA", -- Uric acid (mg/dL)
     -- iron status
-    fer."LBXFER", -- ferritin (ng/mL)
-    irn."LBXIRN", -- iron, frozen serum (ug/dL)
-    irn."LBDPCT", -- transferrin saturation (percent)
-    tfr."LBXTFR", -- transferrin receptor (mg/L)
+    fer."LBXFER", -- Ferritin (ng/mL)
+    irn."LBXIRN", -- Serum iron (ug/dL)
+    irn."LBDPCT", -- Transferrin saturation (%)
+    tfr."LBXTFR", -- Transferrin receptor (mg/L)
     -- fasting context (for glucose/insulin/lipids interpretation; not a weight)
-    fq."PHAFSTHR", -- total length of food fast, hours
-    fq."PHAFSTMN", -- total length of food fast, minutes
+    fq."PHAFSTHR", -- Food fast length (hours)
+    fq."PHAFSTMN", -- Food fast length (minutes)
     -- DBQ_J: diet behavior / habits
-    db."DBQ700", -- how healthy is the diet
-    db."DBD895", -- # of meals not home prepared
-    db."DBD900", -- # of meals from fast food or pizza place
-    db."DBD905", -- # of ready-to-eat foods in past 30 days
-    db."DBD910", -- # of frozen meals/pizza in past 30 days
+    db."DBQ700", -- How healthy is the diet
+    db."DBD895", -- Meals not home prepared
+    db."DBD900", -- Meals from fast food/pizza
+    db."DBD905", -- Ready-to-eat foods (30 days)
+    db."DBD910", -- Frozen meals/pizza (30 days)
     -- FSQ_J: food security / access
-    f."FSDHH", -- household food security category
-    f."FSDAD", -- adult food security category
-    f."FSD032A", -- HH worried run out of food
-    f."FSD032B", -- HH food didn't last
-    f."FSD032C", -- HH couldn't afford balanced meals
+    f."FSDHH", -- Household food security
+    f."FSDAD", -- Adult food security
+    f."FSD032A", -- HH worried food would run out
+    f."FSD032B", -- HH food did not last
+    f."FSD032C", -- HH could not afford balanced meals
     -- DR1TOT_J: day-1 total intakes
-    t1."DR1DRSTZ", -- dietary recall status
-    t1."DR1TKCAL", -- energy (kcal)
-    t1."DR1TPROT", -- protein (gm)
-    t1."DR1TCARB", -- carbohydrate (gm)
-    t1."DR1TTFAT", -- total fat (gm)
-    t1."DR1TSFAT", -- total saturated fatty acids (gm)
-    t1."DR1TMFAT", -- total monounsaturated fatty acids (gm)
-    t1."DR1TPFAT", -- total polyunsaturated fatty acids (gm)
-    t1."DR1TFIBE", -- dietary fiber (gm)
-    t1."DR1TSUGR", -- total sugars (gm)
-    t1."DR1TSODI", -- sodium (mg)
+    t1."DR1DRSTZ", -- Day-1 dietary recall status
+    t1."DR1TKCAL", -- Day-1 energy (kcal)
+    t1."DR1TPROT", -- Day-1 protein (g)
+    t1."DR1TCARB", -- Day-1 carbohydrate (g)
+    t1."DR1TTFAT", -- Day-1 total fat (g)
+    t1."DR1TSFAT", -- Day-1 saturated fat (g)
+    t1."DR1TMFAT", -- Day-1 monounsaturated fat (g)
+    t1."DR1TPFAT", -- Day-1 polyunsaturated fat (g)
+    t1."DR1TFIBE", -- Day-1 dietary fiber (g)
+    t1."DR1TSUGR", -- Day-1 total sugars (g)
+    t1."DR1TSODI", -- Day-1 sodium (mg)
     -- DR2TOT_J: day-2 total intakes
-    t2."DR2DRSTZ", -- dietary recall status
-    t2."DR2TKCAL", -- energy (kcal)
-    t2."DR2TPROT", -- protein (gm)
-    t2."DR2TCARB", -- carbohydrate (gm)
-    t2."DR2TTFAT", -- total fat (gm)
-    t2."DR2TSFAT", -- total saturated fatty acids (gm)
-    t2."DR2TMFAT", -- total monounsaturated fatty acids (gm)
-    t2."DR2TPFAT", -- total polyunsaturated fatty acids (gm)
-    t2."DR2TFIBE", -- dietary fiber (gm)
-    t2."DR2TSUGR", -- total sugars (gm)
-    t2."DR2TSODI", -- sodium (mg)
+    t2."DR2DRSTZ", -- Day-2 dietary recall status
+    t2."DR2TKCAL", -- Day-2 energy (kcal)
+    t2."DR2TPROT", -- Day-2 protein (g)
+    t2."DR2TCARB", -- Day-2 carbohydrate (g)
+    t2."DR2TTFAT", -- Day-2 total fat (g)
+    t2."DR2TSFAT", -- Day-2 saturated fat (g)
+    t2."DR2TMFAT", -- Day-2 monounsaturated fat (g)
+    t2."DR2TPFAT", -- Day-2 polyunsaturated fat (g)
+    t2."DR2TFIBE", -- Day-2 dietary fiber (g)
+    t2."DR2TSUGR", -- Day-2 total sugars (g)
+    t2."DR2TSODI", -- Day-2 sodium (mg)
     -- PAQ_J: physical activity
-    pa."PAQ605", -- vigorous work activity
-    pa."PAQ620", -- moderate work activity
-    pa."PAQ635", -- walk or bicycle
-    pa."PAQ650", -- vigorous recreational activities
-    pa."PAD660", -- minutes vigorous recreational activities
-    pa."PAQ665", -- moderate recreational activities
-    pa."PAD675", -- minutes moderate recreational activities
-    pa."PAD680", -- minutes sedentary activity
+    pa."PAQ605", -- Vigorous work activity
+    pa."PAQ620", -- Moderate work activity
+    pa."PAQ635", -- Walk or bicycle
+    pa."PAQ650", -- Vigorous recreational activity
+    pa."PAD660", -- Minutes vigorous recreation
+    pa."PAQ665", -- Moderate recreational activity
+    pa."PAD675", -- Minutes moderate recreation
+    pa."PAD680", -- Minutes sedentary activity
     -- SMQ_J / COT_J: smoking
-    s."SMQ020", -- smoked at least 100 cigarettes in life
-    s."SMQ040", -- do you now smoke cigarettes
-    s."SMD650", -- avg # cigarettes/day during past 30 days
-    cot."LBXCOT", -- serum cotinine (ng/mL)
+    s."SMQ020", -- Smoked ≥100 cigarettes in life
+    s."SMQ040", -- Current cigarette smoking
+    s."SMD650", -- Avg cigarettes/day (past 30 days)
+    cot."LBXCOT", -- Serum cotinine (ng/mL)
     -- ALQ_J: alcohol
-    a."ALQ111", -- ever had a drink of any kind of alcohol
-    a."ALQ121", -- past 12 mo how often have alcohol drink
-    a."ALQ130", -- avg # alcohol drinks/day - past 12 mos
-    a."ALQ151", -- ever have 4/5 or more drinks every day
+    a."ALQ111", -- Ever drank alcohol
+    a."ALQ121", -- Alcohol frequency (past 12 mo)
+    a."ALQ130", -- Avg drinks/day (past 12 mo)
+    a."ALQ151", -- Ever 4/5+ drinks every day
     -- comorbidities: diabetes, BP/chol history, medical conditions
-    di."DIQ010", -- doctor told you have diabetes
-    di."DIQ160", -- ever told you have prediabetes
-    bq."BPQ020", -- ever told you had high blood pressure
-    bq."BPQ050A", -- now taking prescribed medicine for HBP
-    bq."BPQ080", -- doctor told you - high cholesterol
-    mc."MCQ160B", -- ever told had congestive heart failure
-    mc."MCQ160C", -- ever told you had coronary heart disease
-    mc."MCQ160E", -- ever told you had heart attack
-    mc."MCQ160F", -- ever told you had a stroke
-    mc."MCQ160L", -- ever told you had any liver condition
-    mc."MCQ160O", -- ever told you had COPD
-    mc."MCQ220", -- ever told you had cancer or malignancy
-    mc."MCQ080" -- doctor ever said you were overweight
+    di."DIQ010", -- Doctor told you: diabetes
+    di."DIQ160", -- Ever told: prediabetes
+    bq."BPQ020", -- Ever told: high blood pressure
+    bq."BPQ050A", -- Now taking medicine for HBP
+    bq."BPQ080", -- Doctor told you: high cholesterol
+    mc."MCQ160B", -- Ever told: congestive heart failure
+    mc."MCQ160C", -- Ever told: coronary heart disease
+    mc."MCQ160D", -- Ever told: angina
+    mc."MCQ160E", -- Ever told: heart attack
+    mc."MCQ160F", -- Ever told: stroke
+    mc."MCQ160L", -- Ever told: liver condition
+    mc."MCQ160O", -- Ever told: COPD
+    mc."MCQ220", -- Ever told: cancer or malignancy
+    mc."MCQ080" -- Doctor ever said: overweight
 FROM
     "DEMO_J" AS d
     INNER JOIN "DPQ_J" AS p ON d."SEQN" = p."SEQN"

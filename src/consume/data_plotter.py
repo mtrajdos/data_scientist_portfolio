@@ -105,7 +105,6 @@ class DataPlotter:
             # same length as df: keep 0–3, otherwise use 0
             valid = df[item].where(df[item].isin([0, 1, 2, 3]), other=0)
             df["DPQ_J_total"] += valid
-            print(df["DPQ_J_total"].max())
 
         # Calculate effect size for each predictor in each age group
         for category, predictor_list in predictors.items():
@@ -146,9 +145,6 @@ class DataPlotter:
         
         for age_group in fp_df["age_group"].unique():
             print()
-
-
-
 
     # RQ: Accounting for age groups, is there an association between BMI and
     # mean sugar intake over 2 days?
