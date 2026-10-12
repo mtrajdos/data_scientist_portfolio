@@ -16,12 +16,21 @@ class DataPlotter:
     # RQ: What are the effects of physiological markers (cardiometabolic, renal, etc.)
     # on depression severity defined by DPQ_J total score?
     def plot_forest_effect_sizes_of_phys_markers_on_phq_9(self):
-        self.sql = (
+        # Load data
+        self.data_sql = (
             self.project_root
             / "data/sql/subset_for_psych_diet_physiological_metrics_with_covariates.sql"
         ).read_text(encoding="utf-8")
-        self.df = pd.read_sql(self.sql, self.df_loader.engine)
+        self.df = pd.read_sql(self.data_sql, self.df_loader.engine)
         df = self.df.copy()
+
+        # Load label data
+        self.label_sql = (
+            self.project_root
+            / "data/sql/nhanes_var_labels.sql"
+        ).read_text(encoding="utf-8")
+        self.labels = pd.read_sql(self.label_sql, self.df_loader.engine)
+        labels = self.labels.copy()
 
         age_labels = ["18-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+"]
 
@@ -36,30 +45,20 @@ class DataPlotter:
         # Define covariates
         covariates = [
             "RIAGENDR",
-            "RIDRETH3",
-            "DMDEDUC2",
             "INDFMPIR",
-            "DR1TSUGR",
-            "DR2TSUGR",
-            "DR1TKCAL",
-            "DR2TKCAL",
             "DBQ700",
             "FSDAD",
             "PAQ650",
             "PAD660",
             "PAQ665",
-            "PAD675",
-            "PAD680",
             "SMQ020",
             "SMQ040",
             "LBXCOT",
             "ALQ121",
-            "ALQ130",
             "SLD012",
             "SLQ050",
             "DIQ010",
             "BPQ020",
-            "BPQ050A",
             "BPQ080",
             "MCQ160B",
             "MCQ160C",
@@ -68,8 +67,7 @@ class DataPlotter:
             "MCQ160F",
             "MCQ160L",
             "MCQ160O",
-            "MCQ220",
-            "PHAFSTHR",
+            "MCQ220"
         ]
 
         # Define predictors
@@ -149,10 +147,10 @@ class DataPlotter:
     # RQ: Accounting for age groups, is there an association between BMI and
     # mean sugar intake over 2 days?
     def plot_bmi_vs_mean_sugar_intake_by_age_group(self):
-        self.sql = (
+        self.data_sql = (
             self.project_root / "data/sql/subset_for_psych_and_diet_metrics.sql"
         ).read_text(encoding="utf-8")
-        self.df = pd.read_sql(self.sql, self.df_loader.engine)
+        self.df = pd.read_sql(self.data_sql, self.df_loader.engine)
         df = self.df.copy()
 
         # Plot BMI vs mean sugar intake (average of Day 1 and Day 2 recalls when both exist):
