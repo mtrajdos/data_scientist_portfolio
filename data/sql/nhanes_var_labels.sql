@@ -58,8 +58,8 @@ FROM (
         ('BMXBMI', 'BMI (kg/m²)'),
         ('BMXWAIST', 'Waist circumference (cm)'),
         -- Hepatic
-        ('LBXSATSI', 'ALT (U/L)'),
-        ('LBXSGTSI', 'GGT (IU/L)'),
+        ('LBXSATSI', 'Alanine Aminotransferase / ALT (U/L)'),
+        ('LBXSGTSI', 'Gamma Glutamyl Transferase / GGT (IU/L)'),
         -- Inflammatory
         ('LBXHSCRP', 'hs-CRP (mg/L)'),
         -- Renal / purine
