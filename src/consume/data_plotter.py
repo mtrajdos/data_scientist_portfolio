@@ -34,8 +34,10 @@ class DataPlotter:
             ),
             self.df_loader.engine,
         )
+        # Map variable codes to full variable names
         label_map = dict(zip(labels["code"], labels["short_label"]))
 
+        # Bin ages into labeled groups (include_lowest so age 18 is kept in 18-24)
         age_labels = ["18-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+"]
         df["age_group"] = pd.cut(
             df["RIDAGEYR"],
@@ -44,6 +46,7 @@ class DataPlotter:
             include_lowest=True,
         )
 
+        # Define covariates and predictors
         covariates = [
             "RIAGENDR",
             "INDFMPIR",
@@ -70,23 +73,30 @@ class DataPlotter:
             "renal": ["LBXSCR", "LBXSBU", "LBXSUA"],
             "iron": ["LBXFER", "LBXIRN", "LBDPCT", "LBXTFR"],
         }
+        # Flatten list of predictors (fixed y-axis order across age plots)
         predictor_order = [p for group in predictors.values() for p in group]
 
+        # Calculate mean blood pressure
         df["BPXSY"] = df[["BPXSY1", "BPXSY2", "BPXSY3", "BPXSY4"]].mean(
             axis=1, skipna=True
         )
         df["BPXDI"] = df[["BPXDI1", "BPXDI2", "BPXDI3", "BPXDI4"]].mean(
             axis=1, skipna=True
         )
+
+        # Calculate total depressive symptom severity score
+        # PHQ-9 items DPQ010–DPQ090; keep codes 0–3 only, else treat as 0
         df["DPQ_J_total"] = 0
         for item in [f"DPQ0{i}0" for i in range(1, 10)]:
             df["DPQ_J_total"] += df[item].where(df[item].isin([0, 1, 2, 3]), other=0)
 
-        # OLS per marker × age; keep finite CIs only
+        # OLS per marker × age (complete-case); collect β, SE, 95% CI
+        # OLS — Ordinary Least Squares regression
         rows = []
         for category, marker_list in predictors.items():
             for marker in marker_list:
                 for age in age_labels:
+                    # Drop rows with missing marker, outcome, or any covariate
                     sub = df.loc[df["age_group"] == age].dropna(
                         subset=[marker, "DPQ_J_total", *covariates]
                     )
@@ -109,21 +119,27 @@ class DataPlotter:
                         }
                     )
 
+        # Build forest-plot table; attach human-readable labels
         fp = pd.DataFrame(rows)
         fp["predictor_label"] = fp["predictor"].map(label_map).fillna(fp["predictor"])
+        # Drop singular / tiny-n fits (inf SE or NaN CI — cannot draw error bars)
         fp = fp[
             np.isfinite(fp["std_err"])
             & np.isfinite(fp["ci_lower"])
             & np.isfinite(fp["ci_upper"])
         ].copy()
-        fp["significant"] = (fp["ci_lower"] > 0) | (fp["ci_upper"] < 0)
+        # Significant if two-sided OLS p < 0.05 (equiv. to 95% CI excluding 0)
+        fp["significant"] = fp["p_value"] < 0.05
 
+        # Plot styling and output folder
         mono = {"size": 11, "family": "Courier New, monospace"}
         colors = {True: "#1f77b4", False: "#b0b7c3"}
         out_dir = self.project_root / "data/static/figures"
         out_dir.mkdir(parents=True, exist_ok=True)
 
+        # One forest plot PDF per age band
         for age in age_labels:
+            # Keep predictor order consistent across ages
             age_df = (
                 fp.loc[fp["age_group"] == age]
                 .assign(
@@ -138,6 +154,7 @@ class DataPlotter:
                 print(f"No stable estimates for age {age}; skipping plot.")
                 continue
 
+            # X-axis range: fit full CI widths for this age (+ small pad)
             lo, hi = age_df["ci_lower"].min(), age_df["ci_upper"].max()
             pad = 0.05 * ((hi - lo) if hi > lo else 1.0)
 
@@ -153,6 +170,7 @@ class DataPlotter:
                         y=sub["predictor_label"],
                         mode="markers",
                         marker={"size": 9, "color": color, "opacity": 0.9},
+                        # error_x lengths are distances from the point, not absolute CI coords
                         error_x={
                             "type": "data",
                             "symmetric": False,
@@ -177,6 +195,7 @@ class DataPlotter:
                     )
                 )
 
+            # Y: categorical marker labels (native ticks); reverse so first predictor is on top
             fig.update_yaxes(
                 categoryorder="array",
                 categoryarray=age_df["predictor_label"].tolist()[::-1],
@@ -185,6 +204,7 @@ class DataPlotter:
                 ticklabelposition="outside left",
                 tickfont=mono,
             )
+            # X: effect size with null line at 0
             fig.update_xaxes(
                 title_text="Effect size (Δ PHQ-9 per 1-unit predictor)",
                 showgrid=False,
@@ -206,6 +226,7 @@ class DataPlotter:
                 margin={"l": 40, "r": 40, "t": 70, "b": 70},
             )
 
+            # Save PDF (needs kaleido); always show interactive figure
             try:
                 fig.write_image(out_dir / f"marker_effect_size_{age}.pdf", format="pdf")
             except (ValueError, ImportError, RuntimeError) as exc:
