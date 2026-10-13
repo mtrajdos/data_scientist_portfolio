@@ -17,26 +17,26 @@ class DataPlotter:
     # RQ: What are the effects of physiological markers (cardiometabolic, renal, etc.)
     # on depression severity defined by DPQ_J total score?
     def plot_forest_effect_sizes_of_phys_markers_on_phq_9(self):
-        # Load data
-        self.data_sql = (
-            self.project_root
-            / "data/sql/subset_for_psych_diet_physiological_metrics_with_covariates.sql"
-        ).read_text(encoding="utf-8")
-        self.df = pd.read_sql(text(self.data_sql), self.df_loader.engine)
-        df = self.df.copy()
-
-        # Load label data
-        self.label_sql = (
-            self.project_root / "data/sql/nhanes_var_labels.sql"
-        ).read_text(encoding="utf-8")
-        self.labels = pd.read_sql(text(self.label_sql), self.df_loader.engine)
-        labels = self.labels.copy()
-        # NHANES code -> short axis title (falls back to code if missing)
+        df = pd.read_sql(
+            text(
+                (
+                    self.project_root
+                    / "data/sql/subset_for_psych_diet_physiological_metrics_with_covariates.sql"
+                ).read_text(encoding="utf-8")
+            ),
+            self.df_loader.engine,
+        )
+        labels = pd.read_sql(
+            text(
+                (self.project_root / "data/sql/nhanes_var_labels.sql").read_text(
+                    encoding="utf-8"
+                )
+            ),
+            self.df_loader.engine,
+        )
         label_map = dict(zip(labels["code"], labels["short_label"]))
 
         age_labels = ["18-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75+"]
-
-        # Bin ages into labeled groups (include_lowest so age 18 is kept in 18-24)
         df["age_group"] = pd.cut(
             df["RIDAGEYR"],
             bins=[18, 24, 34, 44, 54, 64, 74, 100],
@@ -44,7 +44,6 @@ class DataPlotter:
             include_lowest=True,
         )
 
-        # Define covariates
         covariates = [
             "RIAGENDR",
             "INDFMPIR",
@@ -54,8 +53,6 @@ class DataPlotter:
             "ALQ121",
             "BMXBMI",
         ]
-
-        # Define predictors (BP uses mean of available readings; BMI is a covariate only)
         predictors = {
             "metabolic": [
                 "LBXGLU",
@@ -67,157 +64,93 @@ class DataPlotter:
                 "LBXTC",
                 "LBDHDD",
             ],
-            "vascular": [
-                "BPXSY",
-                "BPXDI",
-            ],
+            "vascular": ["BPXSY", "BPXDI"],
             "hepatic": ["LBXSATSI", "LBXSGTSI"],
             "inflammatory": ["LBXHSCRP"],
             "renal": ["LBXSCR", "LBXSBU", "LBXSUA"],
             "iron": ["LBXFER", "LBXIRN", "LBDPCT", "LBXTFR"],
         }
+        predictor_order = [p for group in predictors.values() for p in group]
 
-        # Mean BP across available readings (skipna so 1–4 measures can contribute)
         df["BPXSY"] = df[["BPXSY1", "BPXSY2", "BPXSY3", "BPXSY4"]].mean(
             axis=1, skipna=True
         )
         df["BPXDI"] = df[["BPXDI1", "BPXDI2", "BPXDI3", "BPXDI4"]].mean(
             axis=1, skipna=True
         )
-
-        # Define DPQ_J items
-        dpq_j_items = [f"DPQ0{i}0" for i in range(1, 10)]
-
-        # Create DPQ_J total column
         df["DPQ_J_total"] = 0
+        for item in [f"DPQ0{i}0" for i in range(1, 10)]:
+            df["DPQ_J_total"] += df[item].where(df[item].isin([0, 1, 2, 3]), other=0)
 
-        # Create a placeholder for forest plot data
-        fp_data = []
-
-        # Calculate DPQ_J scores
-        for item in dpq_j_items:
-            # same length as df: keep 0–3, otherwise use 0
-            valid = df[item].where(df[item].isin([0, 1, 2, 3]), other=0)
-            df["DPQ_J_total"] += valid
-
-        # Fixed y-axis order across age plots (category → predictor list order)
-        predictor_order = [p for plist in predictors.values() for p in plist]
-
-        # Calculate effect size for each predictor in each age group
-        for category, predictor_list in predictors.items():
-            print(f"--- Processing {category} domain ---")
-
-            for predictor in predictor_list:
-                print(f"Analyzing predictor: {predictor}")
-
-                for age in df["age_group"].dropna().unique():
-                    # Subset: no NAs in predictor, outcome, or covariates
-                    sub_df = df[df["age_group"] == age].dropna(
-                        subset=[predictor, "DPQ_J_total"] + covariates
+        # OLS per marker × age; keep finite CIs only
+        rows = []
+        for category, marker_list in predictors.items():
+            for marker in marker_list:
+                for age in age_labels:
+                    sub = df.loc[df["age_group"] == age].dropna(
+                        subset=[marker, "DPQ_J_total", *covariates]
                     )
-
-                    formula = f"DPQ_J_total ~ {predictor} + " + " + ".join(covariates)
-                    model = smf.ols(formula=formula, data=sub_df).fit()
-
-                    effect_size = model.params[predictor]
-                    p_value = model.pvalues[predictor]
-                    std_err = model.bse[predictor]
-                    conf_int = model.conf_int().loc[predictor]
-                    ci_lower = conf_int[0]
-                    ci_upper = conf_int[1]
-
-                    fp_data.append(
+                    model = smf.ols(
+                        f"DPQ_J_total ~ {marker} + {' + '.join(covariates)}",
+                        data=sub,
+                    ).fit()
+                    ci = model.conf_int().loc[marker]
+                    rows.append(
                         {
                             "category": category,
-                            "predictor": predictor,
+                            "predictor": marker,
                             "age_group": age,
-                            "effect_size": effect_size,
-                            "std_err": std_err,
-                            "ci_lower": ci_lower,
-                            "ci_upper": ci_upper,
-                            "p_value": p_value,
-                            "sample_size": len(sub_df),
+                            "effect_size": model.params[marker],
+                            "std_err": model.bse[marker],
+                            "ci_lower": ci[0],
+                            "ci_upper": ci[1],
+                            "p_value": model.pvalues[marker],
+                            "sample_size": len(sub),
                         }
                     )
 
-        fp_df = pd.DataFrame(fp_data)
-        fp_df["predictor_label"] = (
-            fp_df["predictor"].map(label_map).fillna(fp_df["predictor"])
-        )
-        # Singular / tiny-n fits yield inf SE and NaN CIs — drop from plots
-        fp_df["ci_ok"] = (
-            np.isfinite(fp_df["std_err"])
-            & np.isfinite(fp_df["ci_lower"])
-            & np.isfinite(fp_df["ci_upper"])
-        )
-        fp_df = fp_df.loc[fp_df["ci_ok"]].copy()
-        # Significant if 95% CI excludes 0 (equiv. to two-sided p < 0.05 for OLS)
-        fp_df["significant"] = (fp_df["ci_lower"] > 0) | (fp_df["ci_upper"] < 0)
+        fp = pd.DataFrame(rows)
+        fp["predictor_label"] = fp["predictor"].map(label_map).fillna(fp["predictor"])
+        fp = fp[
+            np.isfinite(fp["std_err"])
+            & np.isfinite(fp["ci_lower"])
+            & np.isfinite(fp["ci_upper"])
+        ].copy()
+        fp["significant"] = (fp["ci_lower"] > 0) | (fp["ci_upper"] < 0)
 
-        def _fmt_estimate(row: pd.Series) -> str:
-            # Fixed-width monospaced fields so '-' stays in one vertical column
-            return (
-                f"{row['effect_size']:>8.3f} "
-                f"({row['ci_lower']:>8.3f}, {row['ci_upper']:>8.3f})"
-            )
-
-        fp_df["estimate_text"] = fp_df.apply(_fmt_estimate, axis=1)
         mono = {"size": 11, "family": "Courier New, monospace"}
-        color_sig = "#1f77b4"
-        color_ns = "#b0b7c3"  # faded grey-blue for non-significant
+        colors = {True: "#1f77b4", False: "#b0b7c3"}
+        out_dir = self.project_root / "data/static/figures"
+        out_dir.mkdir(parents=True, exist_ok=True)
 
-        for age_group in age_labels:
-            age_df = fp_df[fp_df["age_group"] == age_group].copy()
+        for age in age_labels:
+            age_df = (
+                fp.loc[fp["age_group"] == age]
+                .assign(
+                    predictor=lambda d: pd.Categorical(
+                        d["predictor"], categories=predictor_order, ordered=True
+                    )
+                )
+                .sort_values("predictor")
+                .reset_index(drop=True)
+            )
             if age_df.empty:
-                print(f"No stable estimates for age {age_group}; skipping plot.")
+                print(f"No stable estimates for age {age}; skipping plot.")
                 continue
-            # Same predictor order on every age panel
-            age_df["predictor"] = pd.Categorical(
-                age_df["predictor"], categories=predictor_order, ordered=True
-            )
-            age_df = age_df.sort_values("predictor").reset_index(drop=True)
-            y_labels = age_df["predictor_label"].astype(str)
-            y_pos = list(range(len(age_df)))
 
-            # Per-age x-range: always fit full error bars (+ small pad)
-            lo = float(age_df["ci_lower"].min())
-            hi = float(age_df["ci_upper"].max())
-            pad = 0.05 * (hi - lo if hi > lo else 1.0)
-            x_range = [lo - pad, hi + pad]
+            lo, hi = age_df["ci_lower"].min(), age_df["ci_upper"].max()
+            pad = 0.05 * ((hi - lo) if hi > lo else 1.0)
 
-            # 3 columns: right-justified names | forest | left-justified estimates
-            fig = make_subplots(
-                rows=1,
-                cols=3,
-                column_widths=[0.28, 0.42, 0.30],
-                shared_yaxes=True,
-                horizontal_spacing=0.02,
-            )
-
-            # Anchor at x=1 with text to the left → right-justified against the forest
-            fig.add_trace(
-                go.Scatter(
-                    x=np.ones(len(age_df)),
-                    y=y_pos,
-                    mode="text",
-                    text=y_labels,
-                    textposition="middle left",
-                    textfont=mono,
-                    hoverinfo="skip",
-                    showlegend=False,
-                ),
-                row=1,
-                col=1,
-            )
-
-            def _add_forest_points(mask: pd.Series, color: str) -> None:
-                if not mask.any():
-                    return
-                sub = age_df.loc[mask]
+            fig = go.Figure()
+            # Non-sig first, then sig so blue draws on top
+            for is_sig, color in ((False, colors[False]), (True, colors[True])):
+                sub = age_df.loc[age_df["significant"] == is_sig]
+                if sub.empty:
+                    continue
                 fig.add_trace(
                     go.Scatter(
                         x=sub["effect_size"],
-                        y=sub.index.to_list(),
+                        y=sub["predictor_label"],
                         mode="markers",
                         marker={"size": 9, "color": color, "opacity": 0.9},
                         error_x={
@@ -228,63 +161,29 @@ class DataPlotter:
                             "width": 2,
                             "color": color,
                         },
-                        hovertemplate=(
-                            "%{customdata[1]}<br>β=%{x:.3f}<br>n=%{customdata[0]}"
-                            "<extra></extra>"
-                        ),
                         customdata=np.column_stack(
                             [
                                 sub["sample_size"],
-                                sub["predictor_label"].astype(str).to_numpy(),
+                                sub["ci_lower"],
+                                sub["ci_upper"],
                             ]
                         ),
+                        hovertemplate=(
+                            "%{y}<br>"
+                            "β=%{x:.3f} (%{customdata[1]:.3f}, %{customdata[2]:.3f})"
+                            "<br>n=%{customdata[0]}<extra></extra>"
+                        ),
                         showlegend=False,
-                    ),
-                    row=1,
-                    col=2,
+                    )
                 )
 
-            _add_forest_points(~age_df["significant"], color_ns)
-            _add_forest_points(age_df["significant"], color_sig)
-
-            # Left-justified monospaced block; fixed widths keep '-' aligned
-            fig.add_trace(
-                go.Scatter(
-                    x=np.zeros(len(age_df)),
-                    y=y_pos,
-                    mode="text",
-                    text=age_df["estimate_text"],
-                    textposition="middle right",
-                    textfont=mono,
-                    hoverinfo="skip",
-                    showlegend=False,
-                ),
-                row=1,
-                col=3,
-            )
-            # Same anchor/font as values; pad to estimate width so title is centered over them
-            est_width = len(age_df["estimate_text"].iloc[0])
-            header = "Estimate (95% CI)".center(est_width)
-            fig.add_trace(
-                go.Scatter(
-                    x=[0],
-                    y=[-1.15],
-                    mode="text",
-                    text=[header],
-                    textposition="middle right",
-                    textfont={**mono, "size": 12},
-                    hoverinfo="skip",
-                    showlegend=False,
-                ),
-                row=1,
-                col=3,
-            )
-
-            fig.update_xaxes(
-                visible=False,
-                range=[0, 1.02],
-                row=1,
-                col=1,
+            fig.update_yaxes(
+                categoryorder="array",
+                categoryarray=age_df["predictor_label"].tolist()[::-1],
+                automargin=True,
+                showgrid=False,
+                ticklabelposition="outside left",
+                tickfont=mono,
             )
             fig.update_xaxes(
                 title_text="Effect size (Δ PHQ-9 per 1-unit predictor)",
@@ -292,48 +191,27 @@ class DataPlotter:
                 zeroline=True,
                 zerolinecolor="black",
                 zerolinewidth=1,
-                range=x_range,
-                row=1,
-                col=2,
+                range=[lo - pad, hi + pad],
             )
-            fig.update_xaxes(
-                visible=False,
-                range=[-0.02, 1.55],
-                row=1,
-                col=3,
-            )
-            for col in (1, 2, 3):
-                fig.update_yaxes(
-                    visible=False,
-                    range=[len(age_df) - 0.5, -1.6],
-                    row=1,
-                    col=col,
-                )
-
             fig.update_layout(
                 title={
-                    "text": f"Physiological marker effects on PHQ-9 — age {age_group}",
+                    "text": f"Physiological marker effects on PHQ-9 — age {age}",
                     "x": 0.5,
                     "xanchor": "center",
                 },
                 template="plotly_white",
                 font=mono,
-                height=max(520, 24 * len(age_df) + 140),
-                width=1150,
+                height=max(480, 28 * len(age_df) + 120),
+                width=900,
                 margin={"l": 40, "r": 40, "t": 70, "b": 70},
             )
 
-            out_dir = self.project_root / "data/static/figures"
-            out_dir.mkdir(parents=True, exist_ok=True)
             try:
-                fig.write_image(
-                    out_dir / f"marker_effect_size_{age_group}.pdf", format="pdf"
-                )
+                fig.write_image(out_dir / f"marker_effect_size_{age}.pdf", format="pdf")
             except (ValueError, ImportError, RuntimeError) as exc:
                 print(
                     f"PDF export skipped ({exc}). Install kaleido for PDF: pip install kaleido"
                 )
-
             fig.show()
 
     # RQ: Accounting for age groups, is there an association between BMI and
